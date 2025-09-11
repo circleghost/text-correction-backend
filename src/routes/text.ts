@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { textCorrectionController } from '../controllers/textCorrectionController';
+import { optionalApiKeyAuth } from '../middleware/apiAuth';
+import { validateAndSanitizeText } from '../middleware/inputSanitization';
 
 const router = Router();
 
@@ -67,9 +69,13 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.post('/correct', (req, res) => {
-  textCorrectionController.correctText(req, res);
-});
+router.post('/correct', 
+  optionalApiKeyAuth,
+  validateAndSanitizeText({ maxLength: 50000 }),
+  (req, res) => {
+    textCorrectionController.correctText(req, res);
+  }
+);
 
 /**
  * @swagger
@@ -154,9 +160,13 @@ router.post('/correct', (req, res) => {
  *       500:
  *         description: Internal server error
  */
-router.post('/batch-correct', (req, res) => {
-  textCorrectionController.batchCorrectParagraphs(req, res);
-});
+router.post('/batch-correct',
+  optionalApiKeyAuth,
+  validateAndSanitizeText({ maxLength: 50000 }),
+  (req, res) => {
+    textCorrectionController.batchCorrectParagraphs(req, res);
+  }
+);
 
 /**
  * @swagger

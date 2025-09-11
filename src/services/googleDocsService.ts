@@ -92,7 +92,13 @@ export class GoogleDocsService {
       const credentialsPath = process.env['GOOGLE_APPLICATION_CREDENTIALS'];
       
       if (credentialsPath) {
-        const fullPath = path.resolve(credentialsPath);
+        // Validate and resolve credentials path safely
+        const fullPath = this.validateCredentialsPath(credentialsPath);
+        if (!fullPath) {
+          logger.error('Invalid Google Docs credentials path', { path: credentialsPath });
+          return;
+        }
+        
         if (fs.existsSync(fullPath)) {
           logger.info('Using Google Docs credentials from file path (development)', { path: fullPath });
           
@@ -152,6 +158,73 @@ export class GoogleDocsService {
         error: testError instanceof Error ? testError.message : testError
       });
       throw testError;
+    }
+  }
+
+  /**
+   * 驗證憑證檔案路徑，防止路徑遍歷攻擊
+   */
+  private validateCredentialsPath(credentialsPath: string): string | null {
+    try {
+      if (typeof credentialsPath !== 'string') {
+        logger.warn('Credentials path must be a string', { type: typeof credentialsPath });
+        return null;
+      }
+
+      // 移除危險字元和路徑遍歷
+      const sanitized = credentialsPath
+        .replace(/\.\./g, '') // 移除 ..
+        .replace(/[<>:"|?*\x00-\x1f]/g, '') // 移除控制字元和危險符號
+        .trim();
+
+      if (sanitized !== credentialsPath) {
+        logger.warn('Credentials path contains dangerous characters', { 
+          original: credentialsPath.substring(0, 100),
+          sanitized: sanitized.substring(0, 100)
+        });
+        return null;
+      }
+
+      // 解析為絕對路徑
+      const fullPath = path.resolve(sanitized);
+
+      // 確保路徑在專案根目錄或子目錄中
+      const projectRoot = process.cwd();
+      const relativePath = path.relative(projectRoot, fullPath);
+
+      // 檢查是否嘗試存取專案外的檔案
+      if (relativePath.startsWith('../') || path.isAbsolute(relativePath)) {
+        logger.warn('Credentials path attempts to access files outside project directory', {
+          fullPath,
+          projectRoot,
+          relativePath
+        });
+        return null;
+      }
+
+      // 檢查是否為 JSON 檔案
+      if (!fullPath.endsWith('.json')) {
+        logger.warn('Credentials file must be a JSON file', { fullPath });
+        return null;
+      }
+
+      // 額外檢查：確保在 credentials 目錄中
+      if (!fullPath.includes('credentials')) {
+        logger.warn('Credentials file should be in credentials directory', { fullPath });
+      }
+
+      logger.info('Credentials path validated successfully', { 
+        fullPath,
+        relativePath
+      });
+
+      return fullPath;
+    } catch (error) {
+      logger.error('Error validating credentials path', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        credentialsPath: credentialsPath.substring(0, 100)
+      });
+      return null;
     }
   }
 

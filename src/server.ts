@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import { createSecureCorsConfig } from '@utils/corsConfig';
 import helmet from 'helmet';
 import compression from 'compression';
 import swaggerUi from 'swagger-ui-express';
@@ -56,27 +57,8 @@ class ExpressServer {
       crossOriginEmbedderPolicy: false
     }));
 
-    // CORS configuration
-    this.app.use(cors({
-      origin: CORS_ORIGIN,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: [
-        'Origin',
-        'X-Requested-With',
-        'Content-Type',
-        'Accept',
-        'Authorization',
-        'API-Version',
-        'X-Request-ID'
-      ],
-      exposedHeaders: [
-        'X-Request-ID',
-        'X-Response-Time',
-        'API-Version'
-      ],
-      maxAge: 86400 // 24 hours
-    }));
+    // CORS configuration with security validation
+    this.app.use(cors(createSecureCorsConfig()));
 
     // Compression middleware
     this.app.use(compression({
@@ -92,17 +74,18 @@ class ExpressServer {
       }
     }));
 
-    // Body parsing middleware
+    // Body parsing middleware with strict size limits
     this.app.use(express.json({ 
-      limit: '10mb',
+      limit: '1mb', // Reduced from 10mb to prevent DoS attacks
       verify: (req: any, _res: Response, buf: Buffer) => {
         // Store raw body for webhook validation if needed
         req.rawBody = buf;
       }
     }));
+    
     this.app.use(express.urlencoded({ 
-      extended: true, 
-      limit: '10mb' 
+      limit: '1mb',
+      extended: true 
     }));
 
     // Custom middleware
