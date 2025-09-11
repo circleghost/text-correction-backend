@@ -28,6 +28,7 @@ RUN npm ci --only=production
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 # Expose port
 EXPOSE 3000
