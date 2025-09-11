@@ -148,4 +148,74 @@ router.get('/ready', healthCheckLimiter, healthController.ready);
  */
 router.get('/detailed', healthCheckLimiter, healthController.detailed);
 
+/**
+ * @swagger
+ * /health/openai:
+ *   get:
+ *     summary: OpenAI API health check
+ *     description: Test OpenAI API connectivity and response
+ *     tags:
+ *       - Health
+ *     responses:
+ *       200:
+ *         description: OpenAI API is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: healthy
+ *                     model:
+ *                       type: string
+ *                       example: gpt-4.1-nano
+ *                     responseTime:
+ *                       type: string
+ *                       example: "1200ms"
+ *                     testResult:
+ *                       type: string
+ *                       example: "API connection successful"
+ *                     timestamp:
+ *                       type: string
+ *                       format: date-time
+ *                 message:
+ *                   type: string
+ *                   example: OpenAI API is healthy
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       503:
+ *         description: OpenAI API is unhealthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: object
+ *                   properties:
+ *                     code:
+ *                       type: string
+ *                       example: "OPENAI_API_ERROR"
+ *                     message:
+ *                       type: string
+ *                       example: "OpenAI API connection failed"
+ *                     details:
+ *                       type: object
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
+router.get('/openai', healthCheckLimiter, healthController.openaiHealth);
+
 export default router;

@@ -197,11 +197,44 @@ export class TextCorrectionService {
       };
     } catch (error) {
       const processingTime = `${Date.now() - startTime}ms`;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const statusCode = (error as any)?.status || (error as any)?.response?.status;
+      const errorType = (error as any)?.type || 'unknown';
+      
+      logger.error('Single paragraph correction failed', {
+        paragraphId: paragraph.id,
+        textLength: paragraph.text.length,
+        textPreview: paragraph.text.substring(0, 100),
+        error: errorMessage,
+        errorType,
+        statusCode,
+        processingTime
+      });
+      
+      // Provide more specific error messages based on error type
+      let userFriendlyError = errorMessage;
+      if (errorMessage.includes('API key')) {
+        userFriendlyError = 'API 認證失敗，請檢查設定';
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('ECONNRESET')) {
+        userFriendlyError = 'API 請求超時，請稍後再試';
+      } else if (errorMessage.includes('rate limit')) {
+        userFriendlyError = 'API 調用頻率超限，請稍後再試';
+      } else if (errorMessage.includes('model') && errorMessage.includes('does not exist')) {
+        userFriendlyError = 'AI 模型配置錯誤，請聯絡管理員';
+      } else if (statusCode >= 500) {
+        userFriendlyError = 'AI 服務暫時不可用，請稍後再試';
+      }
       
       return {
         paragraphId: paragraph.id,
         status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: userFriendlyError,
+        errorDetails: {
+          originalError: errorMessage,
+          errorType,
+          statusCode,
+          textLength: paragraph.text.length
+        },
         processingTime
       };
     }
@@ -217,7 +250,7 @@ export class TextCorrectionService {
     // Try OpenAI first (primary)
     if (this.openaiClient) {
       try {
-        const model = process.env['OPENAI_MODEL'] || 'gpt-4.1';
+        const model = process.env['OPENAI_MODEL'] || 'gpt-4.1-nano';
         
         logger.info('🟢 Using OpenAI API (Primary)', {
           provider: 'OpenAI',
@@ -376,12 +409,20 @@ export class TextCorrectionService {
     const baseDelay = 1000; // 1 second
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const startTime = Date.now();
       try {
-        const model = process.env['OPENAI_MODEL'] || 'gpt-4.1';
+        const model = process.env['OPENAI_MODEL'] || 'gpt-4.1-nano';
+        const estimatedTokens = Math.ceil(text.length / 3.5); // Rough estimate for Chinese text
+        
         logger.info(`🟢 Calling OpenAI API (Attempt ${attempt}/${maxRetries})`, {
           provider: 'OpenAI',
           model: model,
-          endpoint: 'https://api.openai.com'
+          endpoint: 'https://api.openai.com',
+          textLength: text.length,
+          estimatedInputTokens: estimatedTokens,
+          maxTokens: Math.min(4000, Math.max(text.length * 2, 1000)),
+          temperature: 0.5,
+          requestTime: new Date().toISOString()
         });
         
         const response = await this.openaiClient.chat.completions.create({
@@ -410,13 +451,26 @@ export class TextCorrectionService {
           return text;
         }
 
+        const responseTime = Date.now() - startTime;
+        
         logger.info('✅ OpenAI API call successful', { 
           provider: 'OpenAI',
           model: response.model || model,
           attempt,
+          responseTime: `${responseTime}ms`,
           originalLength: text.length,
           correctedLength: correctedText.length,
-          tokensUsed: response.usage?.total_tokens || 0
+          usage: {
+            promptTokens: response.usage?.prompt_tokens || 0,
+            completionTokens: response.usage?.completion_tokens || 0,
+            totalTokens: response.usage?.total_tokens || 0
+          },
+          costEstimate: {
+            inputCost: ((response.usage?.prompt_tokens || 0) * 0.00001).toFixed(6),
+            outputCost: ((response.usage?.completion_tokens || 0) * 0.00003).toFixed(6),
+            totalCost: (((response.usage?.prompt_tokens || 0) * 0.00001) + ((response.usage?.completion_tokens || 0) * 0.00003)).toFixed(6)
+          },
+          completedAt: new Date().toISOString()
         });
 
         return correctedText;
@@ -424,12 +478,26 @@ export class TextCorrectionService {
         const isLastAttempt = attempt === maxRetries;
         const shouldRetry = this.shouldRetryError(error);
         
-        logger.error('OpenAI API call failed', { 
+        const responseTime = Date.now() - startTime;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const statusCode = (error as any)?.status || (error as any)?.response?.status;
+        const errorType = (error as any)?.type || 'unknown';
+        
+        logger.error(`❌ OpenAI API call failed (Attempt ${attempt}/${maxRetries})`, { 
+          provider: 'OpenAI',
+          model,
           attempt,
           maxRetries,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          isLastAttempt,
+          responseTime: `${responseTime}ms`,
+          error: errorMessage,
+          errorType,
+          statusCode,
+          textLength: text.length,
           textPreview: text.substring(0, 100),
-          willRetry: !isLastAttempt && shouldRetry
+          endpoint: 'https://api.openai.com',
+          willRetry: !isLastAttempt && shouldRetry,
+          failedAt: new Date().toISOString()
         });
 
         if (isLastAttempt || !shouldRetry) {

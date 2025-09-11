@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import type { HealthCheckResult, ServiceStatus, ApiResponse } from '../types/index';
-import { logServiceHealth } from '@utils/logger';
+import { logger, logServiceHealth } from '@utils/logger';
 import { asyncHandler } from '@middleware/errorHandler';
 
 // Health check controller
@@ -119,6 +119,70 @@ class HealthController {
     };
     
     res.status(200).json(response);
+  });
+
+  // OpenAI API health check endpoint
+  public openaiHealth = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    const startTime = Date.now();
+    
+    try {
+      // Import TextCorrectionService to test actual OpenAI connection
+      const { TextCorrectionService } = await import('@services/textCorrectionService');
+      const textService = new TextCorrectionService();
+      
+      // Test with a simple correction request
+      const testText = "測試";
+      const result = await textService.correctText(testText);
+      
+      const responseTime = Date.now() - startTime;
+      const model = process.env['OPENAI_MODEL'] || 'gpt-4.1-nano';
+      
+      const healthResponse: ApiResponse = {
+        success: true,
+        data: {
+          status: 'healthy',
+          model: model,
+          responseTime: `${responseTime}ms`,
+          testResult: 'API connection successful',
+          correctionTest: {
+            input: testText,
+            output: result.correctedText,
+            correctionsCount: result.corrections.length
+          },
+          timestamp: new Date().toISOString()
+        },
+        message: 'OpenAI API is healthy',
+        timestamp: new Date().toISOString()
+      };
+      
+      res.status(200).json(healthResponse);
+      
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown OpenAI error';
+      
+      logger.error('OpenAI health check failed', {
+        error: errorMessage,
+        responseTime: `${responseTime}ms`,
+        timestamp: new Date().toISOString()
+      });
+      
+      const errorResponse: ApiResponse = {
+        success: false,
+        error: {
+          code: 'OPENAI_API_ERROR',
+          message: 'OpenAI API connection failed',
+          details: {
+            error: errorMessage,
+            responseTime: `${responseTime}ms`,
+            model: process.env['OPENAI_MODEL'] || 'gpt-4.1-nano'
+          }
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      res.status(503).json(errorResponse);
+    }
   });
   
   // Database connectivity check
