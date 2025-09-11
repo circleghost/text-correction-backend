@@ -49,7 +49,7 @@ export const apiKeyAuth = (req: AuthenticatedRequest, res: Response, next: NextF
     }
 
     // 驗證 API key 是否在有效列表中
-    const validApiKeys = process.env.VALID_API_KEYS?.split(',') || [];
+    const validApiKeys = process.env['VALID_API_KEYS']?.split(',') || [];
     
     if (validApiKeys.length === 0) {
       logger.error('No valid API keys configured', {

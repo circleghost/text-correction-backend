@@ -6,8 +6,8 @@ import { logger } from './logger';
  * 防止生產環境使用通配符和未授權域名存取
  */
 export const createSecureCorsConfig = (): CorsOptions => {
-  const corsOrigin = process.env.CORS_ORIGIN;
-  const nodeEnv = process.env.NODE_ENV;
+  const corsOrigin = process.env['CORS_ORIGIN'];
+  const nodeEnv = process.env['NODE_ENV'];
 
   // 允許的域名白名單
   const allowedOrigins = [
@@ -109,7 +109,7 @@ export const validateCorsOrigin = (origin: string): boolean => {
     const hasValidPort = !url.port || (parseInt(url.port) > 0 && parseInt(url.port) <= 65535);
     
     // 生產環境必須使用 HTTPS（除非是本地開發）
-    if (process.env.NODE_ENV === 'production' && !isHttps && !isLocalhost) {
+    if (process.env['NODE_ENV'] === 'production' && !isHttps && !isLocalhost) {
       return false;
     }
     
@@ -123,8 +123,8 @@ export const validateCorsOrigin = (origin: string): boolean => {
  * 取得當前 CORS 配置摘要（用於健康檢查）
  */
 export const getCorsConfigSummary = () => {
-  const corsOrigin = process.env.CORS_ORIGIN;
-  const nodeEnv = process.env.NODE_ENV;
+  const corsOrigin = process.env['CORS_ORIGIN'];
+  const nodeEnv = process.env['NODE_ENV'];
   
   return {
     environment: nodeEnv,

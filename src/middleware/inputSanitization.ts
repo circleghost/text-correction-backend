@@ -6,7 +6,7 @@ import { logger } from '@utils/logger';
 
 // 創建 DOMPurify 實例（用於伺服器端）
 const window = new JSDOM('').window;
-const purify = DOMPurify(window as unknown as Window);
+const purify = DOMPurify(window);
 
 /**
  * 輸入消毒選項
@@ -246,7 +246,7 @@ export const safeParse = (jsonString: string): any => {
 /**
  * 一般性的輸入清理中間件
  */
-export const generalSanitization = (req: Request, res: Response, next: NextFunction): void => {
+export const generalSanitization = (req: Request, _res: Response, next: NextFunction): void => {
   // 清理查詢參數
   if (req.query) {
     Object.keys(req.query).forEach(key => {

@@ -7,7 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { createServer, Server } from 'http';
 
 // Import configurations and utilities
-import { PORT, NODE_ENV, CORS_ORIGIN, validateConfig } from '@utils/config';
+import { PORT, NODE_ENV, validateConfig } from '@utils/config';
 import { logger, logStartup, logShutdown } from '@utils/logger';
 import { swaggerSpec, swaggerUiOptions } from '@utils/swagger';
 
