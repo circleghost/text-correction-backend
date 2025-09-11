@@ -169,15 +169,7 @@ class HealthController {
       
       const errorResponse: ApiResponse = {
         success: false,
-        error: {
-          code: 'OPENAI_API_ERROR',
-          message: 'OpenAI API connection failed',
-          details: {
-            error: errorMessage,
-            responseTime: `${responseTime}ms`,
-            model: process.env['OPENAI_MODEL'] || 'gpt-4.1-nano'
-          }
-        },
+        error: `OpenAI API connection failed: ${errorMessage} (${responseTime}ms)`,
         timestamp: new Date().toISOString()
       };
       

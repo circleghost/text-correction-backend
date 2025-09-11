@@ -31,6 +31,12 @@ interface BatchResult {
   corrections?: TextCorrection[];
   processingTime?: string;
   error?: string;
+  errorDetails?: {
+    originalError: string;
+    errorType: string;
+    statusCode?: number;
+    textLength: number;
+  };
 }
 
 export class TextCorrectionService {
@@ -410,8 +416,8 @@ export class TextCorrectionService {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const startTime = Date.now();
+      const model = process.env['OPENAI_MODEL'] || 'gpt-4.1-nano';
       try {
-        const model = process.env['OPENAI_MODEL'] || 'gpt-4.1-nano';
         const estimatedTokens = Math.ceil(text.length / 3.5); // Rough estimate for Chinese text
         
         logger.info(`🟢 Calling OpenAI API (Attempt ${attempt}/${maxRetries})`, {
@@ -485,7 +491,7 @@ export class TextCorrectionService {
         
         logger.error(`❌ OpenAI API call failed (Attempt ${attempt}/${maxRetries})`, { 
           provider: 'OpenAI',
-          model,
+          model: model,
           attempt,
           maxRetries,
           isLastAttempt,

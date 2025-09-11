@@ -30,6 +30,25 @@ OPENAI_API_KEY=sk-your-openai-api-key
 OPENAI_MODEL=gpt-4.1-nano  # 如果不設定，會使用預設值
 ```
 
+### Google Docs API 配置（可選）
+
+#### 方案 A：JSON 環境變數（推薦用於生產環境）
+```bash
+GOOGLE_CREDENTIALS_JSON='{"type":"service_account","project_id":"...","client_email":"...","private_key":"..."}'
+```
+
+#### 方案 B：個別環境變數（替代方案）
+```bash
+GOOGLE_CLIENT_EMAIL=service-account@your-project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVATE KEY-----"
+GOOGLE_PROJECT_ID=your-google-project-id
+```
+
+#### 方案 C：檔案路徑（僅限開發環境）
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
+```
+
 ## API 調用範例
 
 ### 使用 curl 測試

@@ -11,6 +11,10 @@ export interface EnvConfig {
   REDIS_URL?: string;
   OPENAI_API_KEY: string;
   GOOGLE_APPLICATION_CREDENTIALS?: string;
+  GOOGLE_CREDENTIALS_JSON?: string;
+  GOOGLE_CLIENT_EMAIL?: string;
+  GOOGLE_PRIVATE_KEY?: string;
+  GOOGLE_PROJECT_ID?: string;
   CORS_ORIGIN: string;
   RATE_LIMIT_WINDOW_MS: number;
   RATE_LIMIT_MAX_REQUESTS: number;

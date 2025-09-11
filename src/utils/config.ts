@@ -88,6 +88,45 @@ const envSchema = Joi.object<EnvConfig>({
       'number.max': 'RATE_LIMIT_MAX_REQUESTS must be at most 10000'
     }),
   
+  // Google Docs API credentials (optional)
+  GOOGLE_CREDENTIALS_JSON: Joi.string()
+    .optional()
+    .custom((value, helpers) => {
+      try {
+        const parsed = JSON.parse(value);
+        if (!parsed.type || !parsed.client_email || !parsed.private_key) {
+          return helpers.error('google.invalid');
+        }
+        return value;
+      } catch {
+        return helpers.error('google.invalid');
+      }
+    })
+    .messages({
+      'google.invalid': 'GOOGLE_CREDENTIALS_JSON must be a valid Google Service Account JSON'
+    }),
+
+  GOOGLE_CLIENT_EMAIL: Joi.string()
+    .email()
+    .optional()
+    .messages({
+      'string.email': 'GOOGLE_CLIENT_EMAIL must be a valid email address'
+    }),
+
+  GOOGLE_PRIVATE_KEY: Joi.string()
+    .optional()
+    .pattern(/-----BEGIN PRIVATE KEY-----/)
+    .messages({
+      'string.pattern.base': 'GOOGLE_PRIVATE_KEY must be a valid private key starting with "-----BEGIN PRIVATE KEY-----"'
+    }),
+
+  GOOGLE_PROJECT_ID: Joi.string()
+    .optional()
+    .alphanum()
+    .messages({
+      'string.alphanum': 'GOOGLE_PROJECT_ID must contain only alphanumeric characters'
+    }),
+  
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'debug')
     .default('info')
@@ -124,6 +163,10 @@ export const {
   REDIS_URL,
   OPENAI_API_KEY,
   GOOGLE_APPLICATION_CREDENTIALS,
+  GOOGLE_CREDENTIALS_JSON,
+  GOOGLE_CLIENT_EMAIL,
+  GOOGLE_PRIVATE_KEY,
+  GOOGLE_PROJECT_ID,
   CORS_ORIGIN,
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_REQUESTS,

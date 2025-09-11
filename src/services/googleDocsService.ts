@@ -29,38 +29,129 @@ export class GoogleDocsService {
 
   private async initializeAuth(): Promise<void> {
     try {
+      // Method 1: Try environment variable with JSON credentials (production)
+      const credentialsJson = process.env['GOOGLE_CREDENTIALS_JSON'];
+      
+      if (credentialsJson) {
+        try {
+          const credentials = JSON.parse(credentialsJson);
+          logger.info('Using Google Docs credentials from environment variable');
+          
+          this.auth = new GoogleAuth({
+            credentials,
+            scopes: [
+              'https://www.googleapis.com/auth/documents.readonly',
+              'https://www.googleapis.com/auth/drive.readonly'
+            ]
+          });
+          
+          await this.testConnection();
+          return;
+        } catch (parseError) {
+          logger.error('Failed to parse Google credentials JSON from environment variable', { 
+            error: parseError instanceof Error ? parseError.message : parseError 
+          });
+        }
+      }
+
+      // Method 2: Try individual environment variables (alternative production method)
+      const clientEmail = process.env['GOOGLE_CLIENT_EMAIL'];
+      const privateKey = process.env['GOOGLE_PRIVATE_KEY'];
+      const projectId = process.env['GOOGLE_PROJECT_ID'];
+
+      if (clientEmail && privateKey && projectId) {
+        try {
+          logger.info('Using Google Docs credentials from individual environment variables');
+          
+          // Replace escaped newlines with actual newlines in private key
+          const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
+          
+          this.auth = new GoogleAuth({
+            credentials: {
+              client_email: clientEmail,
+              private_key: formattedPrivateKey,
+              project_id: projectId,
+              type: 'service_account'
+            },
+            scopes: [
+              'https://www.googleapis.com/auth/documents.readonly',
+              'https://www.googleapis.com/auth/drive.readonly'
+            ]
+          });
+          
+          await this.testConnection();
+          return;
+        } catch (credError) {
+          logger.error('Failed to initialize Google Auth with individual environment variables', { 
+            error: credError instanceof Error ? credError.message : credError 
+          });
+        }
+      }
+
+      // Method 3: Try file path (development fallback)
       const credentialsPath = process.env['GOOGLE_APPLICATION_CREDENTIALS'];
       
-      if (!credentialsPath) {
-        logger.warn('Google Docs service disabled: GOOGLE_APPLICATION_CREDENTIALS not configured');
-        return;
+      if (credentialsPath) {
+        const fullPath = path.resolve(credentialsPath);
+        if (fs.existsSync(fullPath)) {
+          logger.info('Using Google Docs credentials from file path (development)', { path: fullPath });
+          
+          this.auth = new GoogleAuth({
+            keyFile: fullPath,
+            scopes: [
+              'https://www.googleapis.com/auth/documents.readonly',
+              'https://www.googleapis.com/auth/drive.readonly'
+            ]
+          });
+          
+          await this.testConnection();
+          return;
+        } else {
+          logger.error('Google Docs credentials file not found', { path: fullPath });
+        }
       }
 
-      // Check if credentials file exists
-      const fullPath = path.resolve(credentialsPath);
-      if (!fs.existsSync(fullPath)) {
-        logger.error('Google Docs credentials file not found', { path: fullPath });
-        return;
-      }
+      // No credentials found - disable service
+      logger.warn('Google Docs service disabled: No valid credentials found');
+      logger.info('To enable Google Docs service, set one of:');
+      logger.info('1. GOOGLE_CREDENTIALS_JSON (recommended for production)');
+      logger.info('2. GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY + GOOGLE_PROJECT_ID');
+      logger.info('3. GOOGLE_APPLICATION_CREDENTIALS (file path for development)');
 
-      // Initialize Google Auth
-      this.auth = new GoogleAuth({
-        keyFile: fullPath,
-        scopes: [
-          'https://www.googleapis.com/auth/documents.readonly',
-          'https://www.googleapis.com/auth/drive.readonly'
-        ],
-      });
-
-      // Initialize Google APIs
-      this.docs = google.docs({ version: 'v1', auth: this.auth });
-      this.drive = google.drive({ version: 'v3', auth: this.auth });
-
-      logger.info('Google Docs service initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize Google Docs service', { 
         error: error instanceof Error ? error.message : 'Unknown error' 
       });
+    }
+  }
+
+  /**
+   * Test the connection and initialize Google APIs
+   */
+  private async testConnection(): Promise<void> {
+    if (!this.auth) {
+      throw new Error('Google Auth not initialized');
+    }
+
+    // Initialize Google APIs
+    this.docs = google.docs({ version: 'v1', auth: this.auth });
+    this.drive = google.drive({ version: 'v3', auth: this.auth });
+
+    // Test the connection by making a simple API call
+    try {
+      await this.auth.getClient();
+      const projectId = await this.auth.getProjectId();
+      
+      logger.info('Google Docs service initialized successfully', {
+        projectId,
+        hasDocsApi: !!this.docs,
+        hasDriveApi: !!this.drive
+      });
+    } catch (testError) {
+      logger.error('Google Docs service authentication failed', {
+        error: testError instanceof Error ? testError.message : testError
+      });
+      throw testError;
     }
   }
 
