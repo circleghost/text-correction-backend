@@ -1,0 +1,6 @@
+{
+  "framework": "express",
+  "build_command": "npm install && npm run build",
+  "start_command": "node dist/server.js",
+  "region": "asia-east1"
+}
