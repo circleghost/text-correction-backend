@@ -574,51 +574,23 @@ export class TextCorrectionService {
    */
   private buildSystemPrompt(options: CorrectionOptions): string {
     const language = options.language || 'zh-TW';
-    let prompt = '';
     
     if (language.startsWith('zh')) {
-      prompt = `你是一個專業的中文文字編輯專家，擅長校正繁體中文和簡體中文的文字錯誤。你的任務是：
-
-1. **錯字校正**：修正錯別字、同音字誤用、形似字混淆等問題
-2. **語法優化**：改善語法結構，使表達更自然流暢  
-3. **標點符號**：規範化標點符號的使用，遵循中文標點規範
-4. **用詞精確**：提升用詞的準確性和適切性
-
-**校正原則**：
-- 保持原文的語調、風格和表達意圖
-- 不改變原文的核心意思和結構
-- 優先修正明顯錯誤，謹慎處理風格性改動
-- 保留專有名詞、人名、地名等特殊用語
-- 維持原始的段落結構和格式`;
-
-      if (options.correctionLevel === 'basic') {
-        prompt += '\n\n**校正等級**：基礎 - 僅修正明顯的錯字和標點錯誤';
-      } else if (options.correctionLevel === 'advanced') {
-        prompt += '\n\n**校正等級**：進階 - 進行全面校正，包括風格改善和表達優化';
-      } else {
-        prompt += '\n\n**校正等級**：標準 - 修正錯字、語法和標點錯誤，保持原有風格';
-      }
+      return '你是一個專業的中文文字校正助手。請仔細檢查用戶提供的文字，修正其中的錯字、語法錯誤和標點符號問題。只返回修正後的文字內容，不要添加任何解釋或說明。';
     } else {
-      prompt = `You are a professional text editor. Correct spelling, grammar, and punctuation errors while preserving the original meaning and style.`;
+      return 'You are a professional text editor. Correct spelling, grammar, and punctuation errors while preserving the original meaning and style.';
     }
-
-    return prompt;
   }
 
   /**
    * Build user prompt for the specific text
    */
   private buildUserPrompt(text: string, options: CorrectionOptions): string {
-    let prompt = '請校正以下文字：\n\n';
-    prompt += `「${text}」\n\n`;
-    
-    if (options.preserveFormatting) {
-      prompt += '注意：請保持原始的格式和結構。\n';
-    }
-    
-    prompt += '請直接回傳校正後的文字，不需要額外說明或標記。';
-    
-    return prompt;
+    return `請將以下文字複寫，只需改錯字及語句不通順的地方。
+
+<text>
+${text}
+</text>`;
   }
 
   /**

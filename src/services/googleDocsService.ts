@@ -35,6 +35,12 @@ export class GoogleDocsService {
       if (credentialsJson) {
         try {
           const credentials = JSON.parse(credentialsJson);
+          
+          // 修復私鑰格式 - 將轉義的換行符號替換為實際的換行符號
+          if (credentials.private_key && typeof credentials.private_key === 'string') {
+            credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+          }
+          
           logger.info('Using Google Docs credentials from environment variable');
           
           this.auth = new GoogleAuth({

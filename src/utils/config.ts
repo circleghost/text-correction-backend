@@ -46,7 +46,7 @@ const envSchema = Joi.object<EnvConfig>({
     }),
   
   OPENAI_API_KEY: Joi.string()
-    .pattern(/^sk-proj-[a-zA-Z0-9_-]{100,}$|^sk-[a-zA-Z0-9]{32,}$/)
+    .pattern(/^sk-proj-[a-zA-Z0-9_-]{50,}$|^sk-[a-zA-Z0-9]{32,}$/)
     .required()
     .messages({
       'string.pattern.base': 'OPENAI_API_KEY must be a valid OpenAI API key (sk-... or sk-proj-... format)',
@@ -61,11 +61,26 @@ const envSchema = Joi.object<EnvConfig>({
     .try(
       Joi.string().uri(),
       Joi.string().valid('*'),
-      Joi.array().items(Joi.string().uri())
+      Joi.array().items(Joi.string().uri()),
+      Joi.string().custom((value, helpers) => {
+        // Support comma-separated URLs
+        if (value.includes(',')) {
+          const origins = value.split(',').map(origin => origin.trim());
+          for (const origin of origins) {
+            try {
+              new URL(origin);
+            } catch {
+              return helpers.error('cors.invalidUrl', { origin });
+            }
+          }
+        }
+        return value;
+      })
     )
     .default('http://localhost:3000')
     .messages({
-      'alternatives.match': 'CORS_ORIGIN must be a valid URL, "*", or array of URLs'
+      'alternatives.match': 'CORS_ORIGIN must be a valid URL, "*", comma-separated URLs, or array of URLs',
+      'cors.invalidUrl': 'Invalid URL in CORS_ORIGIN: {{#origin}}'
     }),
   
   RATE_LIMIT_WINDOW_MS: Joi.number()
