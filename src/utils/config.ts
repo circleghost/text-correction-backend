@@ -65,7 +65,7 @@ const envSchema = Joi.object<EnvConfig>({
       Joi.string().custom((value, helpers) => {
         // Support comma-separated URLs
         if (value.includes(',')) {
-          const origins = value.split(',').map(origin => origin.trim());
+          const origins = value.split(',').map((origin: string) => origin.trim());
           for (const origin of origins) {
             try {
               new URL(origin);

@@ -585,7 +585,7 @@ export class TextCorrectionService {
   /**
    * Build user prompt for the specific text
    */
-  private buildUserPrompt(text: string, options: CorrectionOptions): string {
+  private buildUserPrompt(text: string, _options: CorrectionOptions): string {
     return `請將以下文字複寫，只需改錯字及語句不通順的地方。
 
 <text>
