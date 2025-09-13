@@ -1,5 +1,6 @@
 import type { Request } from 'express';
 import type { JwtPayload } from 'jsonwebtoken';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Environment configuration interface
 export interface EnvConfig {
@@ -15,6 +16,11 @@ export interface EnvConfig {
   GOOGLE_CLIENT_EMAIL?: string;
   GOOGLE_PRIVATE_KEY?: string;
   GOOGLE_PROJECT_ID?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_ANON_KEY?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
   CORS_ORIGIN: string;
   RATE_LIMIT_WINDOW_MS: number;
   RATE_LIMIT_MAX_REQUESTS: number;
@@ -41,8 +47,8 @@ export interface JwtUser extends JwtPayload {
   email: string;
 }
 
-// Extended Express Request with user
-export interface AuthRequest extends Request {
+// Extended Express Request with user (legacy JWT)
+export interface JwtAuthRequest extends Request {
   user?: JwtUser;
 }
 
@@ -166,4 +172,92 @@ export interface TextSplitResult {
   totalCharacters: number;
   totalChunks: number;
   maxChunkSize: number;
+}
+
+// Authentication and User Management types
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  google_id?: string;
+  created_at: string;
+  updated_at: string;
+  last_sign_in_at?: string;
+}
+
+export interface SupabaseAuthUser extends SupabaseUser {
+  app_metadata: {
+    provider?: string;
+    providers?: string[];
+  };
+  user_metadata: {
+    avatar_url?: string;
+    email?: string;
+    email_verified?: boolean;
+    full_name?: string;
+    iss?: string;
+    name?: string;
+    picture?: string;
+    provider_id?: string;
+    sub?: string;
+  };
+}
+
+export interface AuthRequest extends Request {
+  user?: SupabaseAuthUser;
+}
+
+// Usage Tracking types
+export interface UsageRecord {
+  id: string;
+  user_id: string;
+  action_type: 'correction_request' | 'text_processed' | 'api_call';
+  text_length: number;
+  tokens_used?: number;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UsageQuota {
+  user_id: string;
+  monthly_limit: number;
+  current_usage: number;
+  reset_date: string;
+  quota_type: 'free' | 'premium';
+}
+
+export interface UsageStats {
+  total_requests: number;
+  total_characters: number;
+  monthly_usage: number;
+  daily_usage: number;
+  remaining_quota: number;
+  quota_percentage: number;
+}
+
+// Google OAuth types
+export interface GoogleOAuthProfile {
+  id: string;
+  email: string;
+  verified_email: boolean;
+  name: string;
+  given_name: string;
+  family_name: string;
+  picture: string;
+  locale: string;
+}
+
+export interface GoogleTokenPayload {
+  iss: string;
+  sub: string;
+  email: string;
+  email_verified: boolean;
+  name: string;
+  picture: string;
+  given_name: string;
+  family_name: string;
+  locale: string;
+  iat: number;
+  exp: number;
 }

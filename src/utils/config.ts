@@ -141,6 +141,43 @@ const envSchema = Joi.object<EnvConfig>({
     .messages({
       'string.alphanum': 'GOOGLE_PROJECT_ID must contain only alphanumeric characters'
     }),
+
+  GOOGLE_CLIENT_ID: Joi.string()
+    .optional()
+    .pattern(/^[0-9]+-[a-zA-Z0-9_]+\.apps\.googleusercontent\.com$/)
+    .messages({
+      'string.pattern.base': 'GOOGLE_CLIENT_ID must be a valid Google OAuth client ID'
+    }),
+
+  GOOGLE_CLIENT_SECRET: Joi.string()
+    .optional()
+    .min(24)
+    .messages({
+      'string.min': 'GOOGLE_CLIENT_SECRET must be at least 24 characters long'
+    }),
+
+  SUPABASE_URL: Joi.string()
+    .optional()
+    .uri({ scheme: ['https'] })
+    .pattern(/^https:\/\/[a-z0-9]+\.supabase\.co$/)
+    .messages({
+      'string.uri': 'SUPABASE_URL must be a valid HTTPS URL',
+      'string.pattern.base': 'SUPABASE_URL must be a valid Supabase project URL'
+    }),
+
+  SUPABASE_ANON_KEY: Joi.string()
+    .optional()
+    .pattern(/^eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/)
+    .messages({
+      'string.pattern.base': 'SUPABASE_ANON_KEY must be a valid JWT token'
+    }),
+
+  SUPABASE_SERVICE_ROLE_KEY: Joi.string()
+    .optional()
+    .pattern(/^eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$/)
+    .messages({
+      'string.pattern.base': 'SUPABASE_SERVICE_ROLE_KEY must be a valid JWT token'
+    }),
   
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'debug')
@@ -182,6 +219,11 @@ export const {
   GOOGLE_CLIENT_EMAIL,
   GOOGLE_PRIVATE_KEY,
   GOOGLE_PROJECT_ID,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY,
   CORS_ORIGIN,
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_REQUESTS,
