@@ -1,78 +1,42 @@
 -- Row Level Security policies for user data protection
--- This migration enables RLS and creates security policies
+-- 修正版：使用 Supabase 內建的 auth.uid() 函數，避免權限問題
 
 -- Enable Row Level Security on all tables
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usage_tracking ENABLE ROW LEVEL SECURITY;
 
--- Helper function to get current user ID from JWT token
-CREATE OR REPLACE FUNCTION auth.user_id()
-RETURNS UUID
-LANGUAGE SQL STABLE
-AS $$
-  SELECT COALESCE(
-    current_setting('request.jwt.claims', true)::json->>'sub',
-    (current_setting('request.jwt.claims', true)::json->>'user_id')
-  )::UUID;
-$$;
-
--- Helper function to check if current user is authenticated
-CREATE OR REPLACE FUNCTION auth.authenticated()
-RETURNS BOOLEAN
-LANGUAGE SQL STABLE
-AS $$
-  SELECT auth.user_id() IS NOT NULL;
-$$;
-
--- Helper function to get current user role
-CREATE OR REPLACE FUNCTION auth.user_role()
-RETURNS TEXT
-LANGUAGE SQL STABLE
-AS $$
-  SELECT COALESCE(
-    current_setting('request.jwt.claims', true)::json->>'role',
-    'authenticated'
-  );
-$$;
-
 -- Users table RLS policies
 -- Policy: Users can read their own profile
 CREATE POLICY "Users can read own profile" ON users
   FOR SELECT
-  USING (auth.user_id() = id);
+  USING (auth.uid() = id);
 
 -- Policy: Users can update their own profile  
 CREATE POLICY "Users can update own profile" ON users
   FOR UPDATE
-  USING (auth.user_id() = id)
-  WITH CHECK (auth.user_id() = id);
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 
--- Policy: Allow user creation during signup (service role only)
-CREATE POLICY "Service role can insert users" ON users
+-- Policy: Allow user creation during signup
+CREATE POLICY "Enable insert for authenticated users only" ON users
   FOR INSERT
-  WITH CHECK (auth.user_role() = 'service_role');
+  WITH CHECK (auth.uid() = id);
 
 -- Policy: Prevent user deletion for regular users
 CREATE POLICY "Users cannot delete accounts" ON users
   FOR DELETE
   USING (false);
 
--- Policy: Service role has full access (for admin operations)
-CREATE POLICY "Service role full access users" ON users
-  FOR ALL
-  USING (auth.user_role() = 'service_role')
-  WITH CHECK (auth.user_role() = 'service_role');
-
 -- Usage tracking table RLS policies
 -- Policy: Users can read their own usage data
 CREATE POLICY "Users can read own usage" ON usage_tracking
   FOR SELECT
-  USING (auth.user_id() = user_id);
+  USING (auth.uid() = user_id);
 
--- Policy: Service role can insert usage tracking records
-CREATE POLICY "Service role can insert usage" ON usage_tracking
+-- Policy: Users can insert their own usage records
+CREATE POLICY "Users can insert own usage" ON usage_tracking
   FOR INSERT
-  WITH CHECK (auth.user_role() = 'service_role');
+  WITH CHECK (auth.uid() = user_id);
 
 -- Policy: Prevent users from modifying usage records
 CREATE POLICY "Users cannot update usage records" ON usage_tracking
@@ -84,14 +48,8 @@ CREATE POLICY "Users cannot delete usage records" ON usage_tracking
   FOR DELETE
   USING (false);
 
--- Policy: Service role has full access to usage tracking
-CREATE POLICY "Service role full access usage" ON usage_tracking
-  FOR ALL
-  USING (auth.user_role() = 'service_role')
-  WITH CHECK (auth.user_role() = 'service_role');
-
 -- Create secure view for user stats (respects RLS)
-CREATE VIEW secure_user_stats AS
+CREATE OR REPLACE VIEW secure_user_stats AS
 SELECT 
   u.id,
   u.email,
@@ -111,56 +69,41 @@ SELECT
   SUM(CASE WHEN ut.created_at >= DATE_TRUNC('day', NOW()) THEN ut.text_length ELSE 0 END) as daily_characters
 FROM users u
 LEFT JOIN usage_tracking ut ON u.id = ut.user_id
-WHERE u.id = auth.user_id() -- Automatically filtered by RLS
+WHERE u.id = auth.uid() -- 使用 Supabase 內建函數
 GROUP BY u.id, u.email, u.full_name, u.avatar_url, u.created_at, u.last_sign_in_at;
 
--- Grant permissions to authenticated users
-GRANT SELECT ON users TO authenticated;
-GRANT UPDATE ON users TO authenticated;
-GRANT SELECT ON usage_tracking TO authenticated;
-GRANT SELECT ON secure_user_stats TO authenticated;
-
--- Grant permissions to service role
-GRANT ALL ON users TO service_role;
-GRANT ALL ON usage_tracking TO service_role;
-GRANT SELECT ON secure_user_stats TO service_role;
-
 -- Create function to safely insert/update user from auth
-CREATE OR REPLACE FUNCTION public.handle_auth_user()
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
-DECLARE
-  user_email TEXT;
-  user_full_name TEXT;
-  user_avatar_url TEXT;
-  google_user_id TEXT;
 BEGIN
-  -- Extract user data from auth.users
-  user_email := NEW.email;
-  user_full_name := NEW.raw_user_meta_data->>'full_name';
-  user_avatar_url := NEW.raw_user_meta_data->>'avatar_url';
-  google_user_id := NEW.raw_user_meta_data->>'provider_id';
-
-  -- Insert or update user in public.users table
-  INSERT INTO public.users (id, email, full_name, avatar_url, google_id, last_sign_in_at)
-  VALUES (NEW.id, user_email, user_full_name, user_avatar_url, google_user_id, NOW())
+  INSERT INTO public.users (id, email, full_name, avatar_url, last_sign_in_at)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'avatar_url',
+    NOW()
+  )
   ON CONFLICT (id) DO UPDATE SET
     email = EXCLUDED.email,
     full_name = EXCLUDED.full_name,
     avatar_url = EXCLUDED.avatar_url,
-    google_id = EXCLUDED.google_id,
-    last_sign_in_at = EXCLUDED.last_sign_in_at,
+    last_sign_in_at = NOW(),
     updated_at = NOW();
 
   RETURN NEW;
 END;
 $$;
 
--- Create trigger to automatically sync auth.users with public.users
--- Note: This trigger would be created on auth.users if we had access
--- For now, we'll handle this in the application layer
+-- Create trigger on auth.users table
+-- 注意：這個需要在 Supabase Dashboard 的 Database > Triggers 中手動建立
+-- Trigger name: on_auth_user_created
+-- Table: auth.users
+-- Events: INSERT
+-- Function: public.handle_new_user()
 
 -- Create function to track usage
 CREATE OR REPLACE FUNCTION public.track_usage(
@@ -196,24 +139,18 @@ BEGIN
 END;
 $$;
 
--- Grant execute permission on tracking function
-GRANT EXECUTE ON FUNCTION public.track_usage TO authenticated;
-GRANT EXECUTE ON FUNCTION public.track_usage TO service_role;
-
 -- Comments for documentation
 COMMENT ON POLICY "Users can read own profile" ON users IS 'Allow users to read their own profile data';
 COMMENT ON POLICY "Users can update own profile" ON users IS 'Allow users to update their own profile';
-COMMENT ON POLICY "Service role can insert users" ON users IS 'Allow service role to create users during signup';
+COMMENT ON POLICY "Enable insert for authenticated users only" ON users IS 'Allow users to create their own profile during signup';
 COMMENT ON POLICY "Users cannot delete accounts" ON users IS 'Prevent regular users from deleting accounts';
 
 COMMENT ON POLICY "Users can read own usage" ON usage_tracking IS 'Allow users to read their own usage statistics';
-COMMENT ON POLICY "Service role can insert usage" ON usage_tracking IS 'Allow service role to track usage';
+COMMENT ON POLICY "Users can insert own usage" ON usage_tracking IS 'Allow users to track their own usage';
 COMMENT ON POLICY "Users cannot update usage records" ON usage_tracking IS 'Prevent modification of usage records';
 COMMENT ON POLICY "Users cannot delete usage records" ON usage_tracking IS 'Prevent deletion of usage records';
 
-COMMENT ON FUNCTION auth.user_id() IS 'Extract user ID from JWT token claims';
-COMMENT ON FUNCTION auth.authenticated() IS 'Check if current user is authenticated';
-COMMENT ON FUNCTION auth.user_role() IS 'Get current user role from JWT claims';
+COMMENT ON FUNCTION public.handle_new_user() IS 'Sync auth.users with public.users table';
 COMMENT ON FUNCTION public.track_usage IS 'Safely track user API usage with validation';
 
 COMMENT ON VIEW secure_user_stats IS 'User statistics view that respects RLS policies';

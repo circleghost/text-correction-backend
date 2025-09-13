@@ -178,6 +178,21 @@ const envSchema = Joi.object<EnvConfig>({
     .messages({
       'string.pattern.base': 'SUPABASE_SERVICE_ROLE_KEY must be a valid JWT token'
     }),
+
+  // 新 Supabase API 金鑰系統
+  SUPABASE_PUBLISHABLE_KEY: Joi.string()
+    .optional()
+    .pattern(/^sb_publishable_[A-Za-z0-9_-]+$/)
+    .messages({
+      'string.pattern.base': 'SUPABASE_PUBLISHABLE_KEY must be a valid publishable key starting with sb_publishable_'
+    }),
+
+  SUPABASE_SECRET_KEY: Joi.string()
+    .optional()
+    .pattern(/^sb_secret_[A-Za-z0-9_-]+$/)
+    .messages({
+      'string.pattern.base': 'SUPABASE_SECRET_KEY must be a valid secret key starting with sb_secret_'
+    }),
   
   LOG_LEVEL: Joi.string()
     .valid('error', 'warn', 'info', 'debug')
@@ -224,6 +239,8 @@ export const {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_SECRET_KEY,
   CORS_ORIGIN,
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_REQUESTS,

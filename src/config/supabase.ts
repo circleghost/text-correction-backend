@@ -1,6 +1,12 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } from '../utils/config';
+import { 
+  SUPABASE_URL, 
+  SUPABASE_ANON_KEY, 
+  SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_SECRET_KEY
+} from '../utils/config';
 
 // Database schema types
 export interface Database {
@@ -80,13 +86,17 @@ let supabaseServiceClient: SupabaseClient<Database> | null = null;
  */
 export const initializeSupabase = (): SupabaseClient<Database> | null => {
   try {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    // 優先使用新的 API 金鑰，回退到舊的金鑰
+    const publicKey = SUPABASE_PUBLISHABLE_KEY || SUPABASE_ANON_KEY;
+    const keyType = SUPABASE_PUBLISHABLE_KEY ? 'new publishable key' : 'legacy anon key';
+    
+    if (!SUPABASE_URL || !publicKey) {
       logger.warn('Supabase configuration missing - running without Supabase integration');
       return null;
     }
 
     if (!supabaseClient) {
-      supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      supabaseClient = createClient<Database>(SUPABASE_URL, publicKey, {
         auth: {
           autoRefreshToken: true,
           persistSession: false, // Backend doesn't need session persistence
@@ -99,7 +109,7 @@ export const initializeSupabase = (): SupabaseClient<Database> | null => {
         },
       });
 
-      logger.info('✅ Supabase client initialized successfully');
+      logger.info(`✅ Supabase client initialized successfully (using ${keyType})`);
     }
 
     return supabaseClient;
@@ -114,13 +124,17 @@ export const initializeSupabase = (): SupabaseClient<Database> | null => {
  */
 export const initializeSupabaseService = (): SupabaseClient<Database> | null => {
   try {
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    // 優先使用新的 Secret Key，回退到舊的 Service Role Key
+    const secretKey = SUPABASE_SECRET_KEY || SUPABASE_SERVICE_ROLE_KEY;
+    const keyType = SUPABASE_SECRET_KEY ? 'new secret key' : 'legacy service role key';
+    
+    if (!SUPABASE_URL || !secretKey) {
       logger.warn('Supabase service role configuration missing - admin operations disabled');
       return null;
     }
 
     if (!supabaseServiceClient) {
-      supabaseServiceClient = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      supabaseServiceClient = createClient<Database>(SUPABASE_URL, secretKey, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
@@ -133,7 +147,7 @@ export const initializeSupabaseService = (): SupabaseClient<Database> | null => 
         },
       });
 
-      logger.info('✅ Supabase service client initialized successfully');
+      logger.info(`✅ Supabase service client initialized successfully (using ${keyType})`);
     }
 
     return supabaseServiceClient;
