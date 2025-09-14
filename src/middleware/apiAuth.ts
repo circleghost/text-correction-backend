@@ -112,25 +112,51 @@ export const apiKeyAuth = (req: AuthenticatedRequest, res: Response, next: NextF
 /**
  * Optional API Key authentication - 不強制要求但會記錄
  * 用於逐步遷移現有端點
+ * 現在能智能區分 JWT token 和 API key
  */
 export const optionalApiKeyAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  const apiKey = req.headers['x-api-key'] as string || 
-                 req.headers.authorization?.replace('Bearer ', '');
+  const apiKeyFromHeader = req.headers['x-api-key'] as string;
+  const bearerToken = req.headers.authorization?.replace('Bearer ', '');
 
-  if (apiKey) {
-    // 如果提供了 API key，就驗證它
-    apiKeyAuth(req, res, next);
-  } else {
-    // 沒有提供 API key，記錄但允許通過
-    logger.warn('API request without authentication', {
-      ip: req.ip,
-      endpoint: req.path,
-      userAgent: req.get('User-Agent')
-    });
-    
-    req.isAuthenticated = false;
-    next();
+  // 優先檢查 X-API-Key header
+  if (apiKeyFromHeader) {
+    // 使用 X-API-Key header 的值進行驗證
+    const tempReq = { ...req, headers: { ...req.headers, authorization: `Bearer ${apiKeyFromHeader}` } } as AuthenticatedRequest;
+    return apiKeyAuth(tempReq, res, next);
   }
+
+  // 檢查 Authorization Bearer token
+  if (bearerToken) {
+    // 只有當 token 以 'sk-' 開頭時才當作 API key 處理
+    // JWT tokens 通常是很長的 base64 編碼字串，不會以 'sk-' 開頭
+    if (bearerToken.startsWith('sk-')) {
+      logger.info('Detected API key in Authorization header', {
+        ip: req.ip,
+        endpoint: req.path,
+        keyPrefix: bearerToken.substring(0, 7) + '...'
+      });
+      return apiKeyAuth(req, res, next);
+    } else {
+      // 這是 JWT token 或其他認證方式，不進行 API key 驗證
+      logger.info('Detected non-API-key token (probably JWT), skipping API key validation', {
+        ip: req.ip,
+        endpoint: req.path,
+        tokenPrefix: bearerToken.substring(0, 20) + '...'
+      });
+      req.isAuthenticated = false; // 標記為未通過 API key 認證，但允許通過
+      return next();
+    }
+  }
+
+  // 沒有提供任何認證信息，記錄但允許通過
+  logger.info('API request without authentication headers', {
+    ip: req.ip,
+    endpoint: req.path,
+    userAgent: req.get('User-Agent')
+  });
+  
+  req.isAuthenticated = false;
+  next();
 };
 
 /**
