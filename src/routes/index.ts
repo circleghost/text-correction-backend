@@ -2,6 +2,9 @@ import { Router } from 'express';
 import healthRoutes from './health';
 import textRoutes from './text';
 import { googleDocsRoutes } from './googleDocsRoutes';
+import authRoutes from './auth';
+import userRoutes from './user';
+import usageRoutes from './usage';
 
 const router = Router();
 
@@ -12,8 +15,9 @@ router.use('/ready', healthRoutes);
 // API routes will be added here as they are implemented
 router.use('/api/v1/text', textRoutes);
 router.use('/api/v1/google-docs', googleDocsRoutes);
-// router.use('/api/v1/auth', authRoutes);
-// router.use('/api/v1/users', userRoutes);
+router.use('/api/v1/auth', authRoutes);
+router.use('/api/v1/user', userRoutes);
+router.use('/api/v1/usage', usageRoutes);
 
 // API info endpoint
 router.get('/', (_req, res) => {
