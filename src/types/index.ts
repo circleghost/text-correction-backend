@@ -189,6 +189,8 @@ export interface User {
 }
 
 export interface SupabaseAuthUser extends SupabaseUser {
+  id: string;
+  email?: string;
   app_metadata: {
     provider?: string;
     providers?: string[];

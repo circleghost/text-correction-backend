@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
 import { AuthenticatedRequest } from '../middleware/apiAuth';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SECRET_KEY!;
+const supabaseUrl = process.env['SUPABASE_URL']!;
+const supabaseKey = process.env['SUPABASE_SECRET_KEY']!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -74,8 +74,8 @@ export class AuthController {
           user: {
             id: user.id,
             email: user.email,
-            name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-            avatar: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+            name: user.user_metadata?.['full_name'] || user.user_metadata?.['name'] || 'User',
+            avatar: user.user_metadata?.['avatar_url'] || user.user_metadata?.['picture'],
             provider: user.app_metadata?.provider || 'google',
             createdAt: user.created_at,
             lastSignIn: user.last_sign_in_at,

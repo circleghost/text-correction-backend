@@ -61,8 +61,8 @@ export class UsageTrackingService {
   private supabase: SupabaseClient;
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env['SUPABASE_URL'];
+    const supabaseKey = process.env['SUPABASE_SECRET_KEY'] || process.env['SUPABASE_SERVICE_ROLE_KEY'];
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error('Missing Supabase configuration for usage tracking');
@@ -203,11 +203,13 @@ export class UsageTrackingService {
         dailyRequests: usageData?.filter(record => new Date(record.created_at) >= dayStart).length || 0,
         dailyCharacters: usageData?.filter(record => new Date(record.created_at) >= dayStart)
           .reduce((sum, record) => sum + (record.text_length || 0), 0) || 0,
-        totalErrors: usageData?.filter(record => record.error_code).length || 0,
-        lastActivity: usageData && usageData.length > 0 
-          ? new Date(Math.max(...usageData.map(record => new Date(record.created_at).getTime())))
-          : undefined
+        totalErrors: usageData?.filter(record => record.error_code).length || 0
       };
+
+      // Add lastActivity only if there's data
+      if (usageData && usageData.length > 0) {
+        stats.lastActivity = new Date(Math.max(...usageData.map(record => new Date(record.created_at).getTime())));
+      }
 
       // Calculate average processing time
       const recordsWithProcessingTime = usageData?.filter(record => record.processing_time_ms) || [];
@@ -362,15 +364,21 @@ export class UsageTrackingService {
         ? recordsWithProcessingTime.reduce((sum, record) => sum + record.processing_time_ms, 0) / recordsWithProcessingTime.length
         : undefined;
 
-      return {
+      const result: any = {
         totalUsers: totalUsers || 0,
         totalRequests,
         totalCharacters,
         totalTokens,
-        averageProcessingTime,
         errorRate: totalRequests > 0 ? (errorCount / totalRequests) * 100 : 0,
         activeUsers
       };
+
+      // Add averageProcessingTime only if available
+      if (averageProcessingTime !== undefined) {
+        result.averageProcessingTime = averageProcessingTime;
+      }
+
+      return result;
 
     } catch (error) {
       logger.error('Error in getSystemUsage:', {
@@ -431,17 +439,17 @@ export class UsageTrackingService {
 
         switch (groupBy) {
           case 'day':
-            groupKey = date.toISOString().split('T')[0];
+            groupKey = date.toISOString().split('T')[0] || 'unknown';
             break;
           case 'week':
             const weekStart = new Date(date.getTime() - (date.getDay() * 24 * 60 * 60 * 1000));
-            groupKey = weekStart.toISOString().split('T')[0];
+            groupKey = weekStart.toISOString().split('T')[0] || 'unknown';
             break;
           case 'month':
             groupKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             break;
           default:
-            groupKey = date.toISOString().split('T')[0];
+            groupKey = date.toISOString().split('T')[0] || 'unknown';
         }
 
         if (!groupedData.has(groupKey)) {

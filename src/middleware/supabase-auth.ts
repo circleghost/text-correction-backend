@@ -16,7 +16,7 @@ const extractBearerToken = (authHeader: string | undefined): string | null => {
     return null;
   }
 
-  return parts[1];
+  return parts[1] || null;
 };
 
 /**

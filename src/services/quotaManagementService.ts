@@ -4,17 +4,6 @@ import { logger } from '../utils/logger';
 export type QuotaType = 'monthly_corrections' | 'monthly_characters' | 'monthly_requests' | 'daily_requests';
 export type UserTier = 'free' | 'premium' | 'enterprise' | 'admin';
 
-interface UserQuota {
-  id: string;
-  userId: string;
-  quotaType: QuotaType;
-  quotaLimit: number;
-  quotaUsed: number;
-  quotaResetDate: Date;
-  tier: UserTier;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 interface QuotaStatus {
   type: QuotaType;
@@ -34,7 +23,16 @@ interface QuotaCheckResult {
 }
 
 interface DefaultQuotaLimits {
-  [key in UserTier]: {
+  free: {
+    [key in QuotaType]: number;
+  };
+  premium: {
+    [key in QuotaType]: number;
+  };
+  enterprise: {
+    [key in QuotaType]: number;
+  };
+  admin: {
     [key in QuotaType]: number;
   };
 }
@@ -71,8 +69,8 @@ export class QuotaManagementService {
   };
 
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env['SUPABASE_URL'];
+    const supabaseKey = process.env['SUPABASE_SECRET_KEY'] || process.env['SUPABASE_SERVICE_ROLE_KEY'];
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error('Missing Supabase configuration for quota management');
@@ -212,11 +210,16 @@ export class QuotaManagementService {
 
       const hasQuota = (quota.quota_used + amount) <= quota.quota_limit;
 
-      return {
+      const result: QuotaCheckResult = {
         allowed: hasQuota,
-        quotaStatus,
-        reason: hasQuota ? undefined : `Quota exceeded. Used: ${quota.quota_used}, Limit: ${quota.quota_limit}`
+        quotaStatus
       };
+
+      if (!hasQuota) {
+        result.reason = `Quota exceeded. Used: ${quota.quota_used}, Limit: ${quota.quota_limit}`;
+      }
+
+      return result;
 
     } catch (error) {
       logger.error('Error in checkQuotaAvailability:', {

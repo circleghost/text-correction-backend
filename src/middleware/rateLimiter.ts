@@ -8,8 +8,8 @@ import type { ApiResponse, AuthRequest } from '../types/index';
 const keyGenerator = (req: Request): string => {
   // Use user ID if authenticated, otherwise fall back to IP
   const authReq = req as AuthRequest;
-  if (authReq.user?.userId) {
-    return `user:${authReq.user.userId}`;
+  if (authReq.user?.id) {
+    return `user:${authReq.user.id}`;
   }
   return req.ip || 'unknown';
 };

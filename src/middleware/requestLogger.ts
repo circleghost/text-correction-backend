@@ -22,7 +22,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     userAgent: req.get('User-Agent'),
     contentType: req.get('Content-Type'),
     contentLength: req.get('Content-Length'),
-    ...(authReq.user && { userId: authReq.user.userId })
+    ...(authReq.user && { userId: authReq.user.id })
   });
   
   // Override the res.end method to log when response is sent
@@ -60,7 +60,7 @@ export const performanceMonitor = (req: Request, res: Response, next: NextFuncti
         duration: `${duration.toFixed(2)}ms`,
         statusCode: res.statusCode,
         ip: req.ip,
-        ...(((req as AuthRequest).user) && { userId: (req as AuthRequest).user!.userId })
+        ...(((req as AuthRequest).user) && { userId: (req as AuthRequest).user!.id })
       });
     }
     

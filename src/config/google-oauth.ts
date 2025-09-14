@@ -220,9 +220,9 @@ export const exchangeCodeForTokens = async (code: string, redirectUri: string): 
     
     return {
       tokens: {
-        access_token: tokens.access_token || undefined,
-        refresh_token: tokens.refresh_token || undefined,
-        id_token: tokens.id_token || undefined,
+        ...(tokens.access_token && { access_token: tokens.access_token }),
+        ...(tokens.refresh_token && { refresh_token: tokens.refresh_token }),
+        ...(tokens.id_token && { id_token: tokens.id_token }),
       },
       error: null,
     };

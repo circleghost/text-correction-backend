@@ -9,14 +9,15 @@ export class UsageController {
   /**
    * Get current user's usage statistics
    */
-  async getCurrentUsage(req: AuthRequest, res: Response, next: NextFunction) {
+  async getCurrentUsage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
       }
 
-      const period = req.query.period as 'day' | 'week' | 'month' | 'all' || 'month';
+      const period = req.query['period'] as 'day' | 'week' | 'month' | 'all' || 'month';
       const usage = await usageTrackingService.getUserUsage(userId, period);
 
       logger.info('Usage statistics retrieved:', {
@@ -42,33 +43,34 @@ export class UsageController {
   /**
    * Get user's usage history with pagination
    */
-  async getUsageHistory(req: AuthRequest, res: Response, next: NextFunction) {
+  async getUsageHistory(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
       }
 
-      const limit = parseInt(req.query.limit as string) || 50;
-      const offset = parseInt(req.query.offset as string) || 0;
-      const actionType = req.query.actionType as string;
+      const limit = parseInt(req.query['limit'] as string) || 50;
+      const offset = parseInt(req.query['offset'] as string) || 0;
+      const actionType = req.query['actionType'] as string;
       
       let startDate: Date | undefined;
       let endDate: Date | undefined;
 
-      if (req.query.startDate) {
-        startDate = new Date(req.query.startDate as string);
+      if (req.query['startDate']) {
+        startDate = new Date(req.query['startDate'] as string);
       }
-      if (req.query.endDate) {
-        endDate = new Date(req.query.endDate as string);
+      if (req.query['endDate']) {
+        endDate = new Date(req.query['endDate'] as string);
       }
 
       const history = await usageTrackingService.getUserUsageHistory(userId, {
         limit,
         offset,
-        startDate,
-        endDate,
-        actionType
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate }),
+        ...(actionType && { actionType })
       });
 
       res.json({
@@ -94,11 +96,12 @@ export class UsageController {
   /**
    * Get user's quota status
    */
-  async getQuotaStatus(req: AuthRequest, res: Response, next: NextFunction) {
+  async getQuotaStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
       }
 
       const quotaStatuses = await quotaManagementService.getUserQuotaStatus(userId);
@@ -125,19 +128,21 @@ export class UsageController {
   /**
    * Check quota availability for specific action
    */
-  async checkQuota(req: AuthRequest, res: Response, next: NextFunction) {
+  async checkQuota(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Validation failed',
           details: errors.array()
         });
+        return;
       }
 
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
       }
 
       const { quotaType, amount = 1 } = req.body;
@@ -165,15 +170,16 @@ export class UsageController {
   /**
    * Get usage trends over time
    */
-  async getUsageTrends(req: AuthRequest, res: Response, next: NextFunction) {
+  async getUsageTrends(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
       }
 
-      const period = req.query.period as 'day' | 'week' | 'month' || 'month';
-      const groupBy = req.query.groupBy as 'day' | 'week' | 'month' || 'day';
+      const period = req.query['period'] as 'day' | 'week' | 'month' || 'month';
+      const groupBy = req.query['groupBy'] as 'day' | 'week' | 'month' || 'day';
 
       const trends = await usageTrackingService.getUsageTrends(userId, period, groupBy);
 
@@ -194,17 +200,18 @@ export class UsageController {
   /**
    * Admin endpoint: Get system-wide usage statistics
    */
-  async getSystemUsage(req: AuthRequest, res: Response, next: NextFunction) {
+  async getSystemUsage(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       // Check if user has admin privileges
-      const userTier = req.user?.tier;
+      const userTier = (req.user as any)?.tier;
       if (userTier !== 'admin') {
-        return res.status(403).json({ 
+        res.status(403).json({ 
           error: 'Access denied. Admin privileges required.' 
         });
+        return;
       }
 
-      const period = req.query.period as 'day' | 'week' | 'month' || 'month';
+      const period = req.query['period'] as 'day' | 'week' | 'month' || 'month';
       const systemUsage = await usageTrackingService.getSystemUsage(period);
 
       logger.info('System usage statistics retrieved:', {
@@ -230,22 +237,24 @@ export class UsageController {
   /**
    * Admin endpoint: Update user quota
    */
-  async updateUserQuota(req: AuthRequest, res: Response, next: NextFunction) {
+  async updateUserQuota(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Validation failed',
           details: errors.array()
         });
+        return;
       }
 
       // Check if user has admin privileges
-      const userTier = req.user?.tier;
+      const userTier = (req.user as any)?.tier;
       if (userTier !== 'admin') {
-        return res.status(403).json({ 
+        res.status(403).json({ 
           error: 'Access denied. Admin privileges required.' 
         });
+        return;
       }
 
       const { userId, quotaType, newLimit } = req.body;
@@ -276,22 +285,24 @@ export class UsageController {
   /**
    * Admin endpoint: Upgrade user tier
    */
-  async upgradeUserTier(req: AuthRequest, res: Response, next: NextFunction) {
+  async upgradeUserTier(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Validation failed',
           details: errors.array()
         });
+        return;
       }
 
       // Check if user has admin privileges
-      const userTier = req.user?.tier;
+      const userTier = (req.user as any)?.tier;
       if (userTier !== 'admin') {
-        return res.status(403).json({ 
+        res.status(403).json({ 
           error: 'Access denied. Admin privileges required.' 
         });
+        return;
       }
 
       const { userId, newTier } = req.body;
@@ -321,19 +332,21 @@ export class UsageController {
   /**
    * Track usage event (internal endpoint used by other services)
    */
-  async trackUsageEvent(req: AuthRequest, res: Response, next: NextFunction) {
+  async trackUsageEvent(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({
+        res.status(400).json({
           error: 'Validation failed',
           details: errors.array()
         });
+        return;
       }
 
       const userId = req.user?.id;
       if (!userId) {
-        return res.status(401).json({ error: 'User not authenticated' });
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
       }
 
       const {
